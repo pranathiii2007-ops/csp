@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Plus, Pencil, Trash2, Package, Inbox, MapPin, IndianRupee, ImagePlus, X, Loader2, Percent, LogOut } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Inbox, MapPin, IndianRupee, ImagePlus, X, Loader2, Percent, LogOut, User, Phone, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -40,12 +40,20 @@ type Inquiry = {
   products?: { name: string } | null;
 };
 
+type Profile = {
+  id: string;
+  shop_name: string;
+  area: string | null;
+  phone: string | null;
+};
+
 function DashboardPage() {
   const nav = useNavigate();
   const { user, loading, signOut } = useAuth();
-  const [tab, setTab] = useState<"products" | "inquiries">("products");
+  const [tab, setTab] = useState<"products" | "inquiries" | "profile">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(true);
@@ -57,12 +65,14 @@ function DashboardPage() {
   const refresh = useCallback(async () => {
     if (!user) return;
     setBusy(true);
-    const [{ data: p }, { data: i }] = await Promise.all([
+    const [{ data: p }, { data: i }, { data: prof }] = await Promise.all([
       supabase.from("products").select("*").eq("seller_id", user.id).order("created_at", { ascending: false }),
       supabase.from("inquiries").select("*, products(name)").eq("seller_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     ]);
     setProducts((p ?? []) as Product[]);
     setInquiries((i ?? []) as Inquiry[]);
+    setProfile(prof as Profile | null);
     setBusy(false);
   }, [user]);
 
@@ -110,6 +120,10 @@ function DashboardPage() {
                 <Inbox className="h-4 w-4" /> Inquiries ({inquiries.length})
                 {unread > 0 && <span className="ml-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">{unread} new</span>}
               </button>
+              <button onClick={() => setTab("profile")}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "profile" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                <User className="h-4 w-4" /> My Profile
+              </button>
             </div>
             {tab === "products" && (
               <button onClick={openNew} className="inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background hover:opacity-90">
@@ -123,8 +137,10 @@ function DashboardPage() {
               <div className="grid place-items-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : tab === "products" ? (
               <ProductsTab products={products} onEdit={openEdit} onDelete={remove} onAdd={openNew} />
-            ) : (
+            ) : tab === "inquiries" ? (
               <InquiriesTab inquiries={inquiries} onChanged={refresh} />
+            ) : (
+              <ProfileTab profile={profile} userId={user.id} onSaved={refresh} />
             )}
           </div>
         </div>
@@ -203,27 +219,15 @@ function InquiriesTab({ inquiries, onChanged }: { inquiries: Inquiry[]; onChange
   return (
     <div className="space-y-3">
       {inquiries.map((i) => (
-        <InquiryCard key={i.id} inquiry={i} onToggleRead={() => toggleRead(i)} onDelete={() => remove(i.id)} onChanged={onChanged} />
+        <InquiryCard key={i.id} inquiry={i} onToggleRead={() => toggleRead(i)} onDelete={() => remove(i.id)} />
       ))}
     </div>
   );
 }
 
-function InquiryCard({ inquiry, onToggleRead, onDelete, onChanged }: {
-  inquiry: Inquiry; onToggleRead: () => void; onDelete: () => void; onChanged: () => void;
+function InquiryCard({ inquiry, onToggleRead, onDelete }: {
+  inquiry: Inquiry; onToggleRead: () => void; onDelete: () => void;
 }) {
-  const [reply, setReply] = useState(inquiry.reply ?? "");
-  const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const send = async () => {
-    if (!reply.trim()) return;
-    setBusy(true);
-    await supabase.from("inquiries").update({ reply: reply.trim(), replied_at: new Date().toISOString(), read: true }).eq("id", inquiry.id);
-    setBusy(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    onChanged();
-  };
   return (
     <article className={`rounded-2xl border bg-card p-5 ${inquiry.read ? "border-border" : "border-primary/40 bg-primary/5"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -239,24 +243,102 @@ function InquiryCard({ inquiry, onToggleRead, onDelete, onChanged }: {
       </div>
       <p className="mt-3 text-sm leading-relaxed text-foreground/90">{inquiry.message}</p>
       <div className="mt-2 text-xs text-muted-foreground">{new Date(inquiry.created_at).toLocaleString()}</div>
-
-      <div className="mt-4 rounded-xl border border-border bg-background p-3">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your reply</div>
-        <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={2}
-          placeholder="Hi, thanks for your interest! Yes, I can…"
-          className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary" />
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <div className="text-xs text-muted-foreground">
-            {inquiry.replied_at ? `Last sent: ${new Date(inquiry.replied_at).toLocaleString()}` : "Not replied yet"}
-          </div>
-          <button onClick={send} disabled={busy || !reply.trim()}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60">
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-            {saved ? "Reply sent ✓" : inquiry.reply ? "Update reply" : "Send reply"}
-          </button>
-        </div>
-      </div>
     </article>
+  );
+}
+
+function ProfileTab({ profile, userId, onSaved }: {
+  profile: Profile | null;
+  userId: string;
+  onSaved: () => void;
+}) {
+  const [shopName, setShopName] = useState(profile?.shop_name ?? "");
+  const [area, setArea] = useState(profile?.area ?? "");
+  const [phone, setPhone] = useState(profile?.phone ?? "");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setShopName(profile?.shop_name ?? "");
+    setArea(profile?.area ?? "");
+    setPhone(profile?.phone ?? "");
+  }, [profile]);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shopName.trim()) return;
+    setBusy(true);
+    await supabase.from("profiles").upsert({
+      id: userId,
+      shop_name: shopName.trim(),
+      area: area.trim() || null,
+      phone: phone.trim() || null,
+    });
+    setBusy(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+    onSaved();
+  };
+
+  return (
+    <div className="mx-auto max-w-xl">
+      <div className="rounded-3xl border border-border bg-card p-8">
+        <div className="flex items-center gap-3">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10">
+            <User className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-display text-xl font-semibold">Seller Profile</h2>
+            <p className="text-sm text-muted-foreground">This info appears on your product listings</p>
+          </div>
+        </div>
+
+        <form onSubmit={save} className="mt-8 space-y-5">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shop / Brand Name *</span>
+            <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <input value={shopName} onChange={(e) => setShopName(e.target.value)}
+                placeholder="Pranathi's Handmade Crafts"
+                className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Area / City</span>
+            <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <input value={area} onChange={(e) => setArea(e.target.value)}
+                placeholder="Visakhapatnam, AP"
+                className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Phone Number</span>
+            <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <input value={phone} onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 98765 43210" inputMode="tel"
+                className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+            </div>
+          </label>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            {saved && (
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                <CheckCircle className="h-4 w-4" /> Profile saved!
+              </span>
+            )}
+            <button type="submit" disabled={busy || !shopName.trim()}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60">
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Profile
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
