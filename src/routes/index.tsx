@@ -1,13 +1,16 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useLang, type Lang } from "@/lib/i18n";
 import { Sparkles, ArrowRight, Check } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    throw redirect({ to: "/home" });
+  },
   head: () => ({
     meta: [
-      { title: "Choose Your Language — Community Makers' Market" },
-      { name: "description", content: "Select your preferred language to enter the Community Makers' Market." },
+      { title: "Community Makers' Market" },
+      { name: "description", content: "Support Local Talent, Build a Stronger Community." },
     ],
   }),
   component: LanguageSelect,
