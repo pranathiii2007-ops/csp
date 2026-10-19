@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { Star, MapPin, MessageCircle, Loader2, ArrowLeft, Send } from "lucide-react";
+import { Star, MapPin, MessageCircle, Loader2, ArrowLeft, Send, Store, Tag, Phone, Globe, Instagram, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -20,7 +20,11 @@ type Product = {
   description: string | null; image_url: string; area: string | null;
   discount_percent: number; created_at: string;
 };
-type Profile = { id: string; shop_name: string; area: string | null; phone: string | null };
+type Profile = {
+  id: string; shop_name: string; area: string | null; phone: string | null;
+  logo_url: string | null; description: string | null; category: string | null;
+  website: string | null; instagram: string | null; whatsapp: string | null;
+};
 type Review = { id: string; reviewer_name: string; rating: number; comment: string | null; created_at: string; reviewer_id: string };
 
 function ProductPage() {
@@ -37,7 +41,7 @@ function ProductPage() {
     setProduct((p as Product) ?? null);
     if (p) {
       const [{ data: pr }, { data: rv }] = await Promise.all([
-        supabase.from("profiles").select("id,shop_name,area,phone").eq("id", p.seller_id).maybeSingle(),
+        supabase.from("profiles").select("id,shop_name,area,phone,logo_url,description,category,website,instagram,whatsapp").eq("id", p.seller_id).maybeSingle(),
         supabase.from("reviews").select("*").eq("product_id", id).order("created_at", { ascending: false }),
       ]);
       setSeller((pr as Profile) ?? null);
@@ -74,11 +78,6 @@ function ProductPage() {
 
         <div>
           <h1 className="font-display text-4xl font-semibold leading-tight">{product.name}</h1>
-          {seller && (
-            <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5" /> {seller.shop_name}{seller.area ? ` · ${seller.area}` : ""}
-            </div>
-          )}
 
           <div className="mt-4 flex items-baseline gap-3">
             <div className="font-display text-4xl font-bold text-primary">₹{finalPrice.toFixed(0)}</div>
@@ -94,6 +93,56 @@ function ProductPage() {
           )}
 
           {product.description && <p className="mt-6 whitespace-pre-line text-base leading-relaxed text-foreground/90">{product.description}</p>}
+
+          {seller && (
+            <div className="mt-6 rounded-2xl border border-border bg-card p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seller</div>
+              <div className="flex items-start gap-3">
+                {seller.logo_url ? (
+                  <img src={seller.logo_url} alt={seller.shop_name} className="h-12 w-12 rounded-xl object-cover border border-border shrink-0" />
+                ) : (
+                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 border border-border shrink-0">
+                    <Store className="h-6 w-6 text-primary" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="font-display text-base font-semibold">{seller.shop_name}</div>
+                  {seller.category && (
+                    <div className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium">
+                      <Tag className="h-3 w-3" />{seller.category}
+                    </div>
+                  )}
+                  {seller.area && <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" />{seller.area}</div>}
+                  {seller.description && <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{seller.description}</p>}
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {seller.phone && (
+                      <a href={`tel:${seller.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-semibold hover:bg-secondary">
+                        <Phone className="h-3 w-3" /> Call
+                      </a>
+                    )}
+                    {seller.whatsapp && (
+                      <a href={`https://wa.me/${seller.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 hover:bg-green-100">
+                        <MessageSquare className="h-3 w-3" /> WhatsApp
+                      </a>
+                    )}
+                    {seller.instagram && (
+                      <a href={`https://instagram.com/${seller.instagram.replace(/^@/, "")}`} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-pink-200 bg-pink-50 px-3 py-1 text-xs font-semibold text-pink-600 hover:bg-pink-100">
+                        <Instagram className="h-3 w-3" /> @{seller.instagram.replace(/^@/, "")}
+                      </a>
+                    )}
+                    {seller.website && (
+                      <a href={seller.website} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-100">
+                        <Globe className="h-3 w-3" /> Website
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <ContactForm productId={product.id} sellerId={product.seller_id} />
         </div>

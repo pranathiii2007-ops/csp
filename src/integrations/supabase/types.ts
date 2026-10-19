@@ -100,24 +100,42 @@ export type Database = {
       profiles: {
         Row: {
           area: string | null
+          category: string | null
           created_at: string
+          description: string | null
           id: string
+          instagram: string | null
+          logo_url: string | null
           phone: string | null
           shop_name: string
+          website: string | null
+          whatsapp: string | null
         }
         Insert: {
           area?: string | null
+          category?: string | null
           created_at?: string
+          description?: string | null
           id: string
+          instagram?: string | null
+          logo_url?: string | null
           phone?: string | null
           shop_name?: string
+          website?: string | null
+          whatsapp?: string | null
         }
         Update: {
           area?: string | null
+          category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          instagram?: string | null
+          logo_url?: string | null
           phone?: string | null
           shop_name?: string
+          website?: string | null
+          whatsapp?: string | null
         }
         Relationships: []
       }

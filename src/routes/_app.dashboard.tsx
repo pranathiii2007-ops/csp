@@ -1,6 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Plus, Pencil, Trash2, Package, Inbox, MapPin, IndianRupee, ImagePlus, X, Loader2, Percent, LogOut, User, Phone, CheckCircle } from "lucide-react";
+import {
+  Plus, Pencil, Trash2, Package, Inbox, MapPin, IndianRupee,
+  ImagePlus, X, Loader2, Percent, LogOut, User, Phone, CheckCircle,
+  Globe, Instagram, MessageSquare, Store, Tag, FileText, Building2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -45,6 +49,12 @@ type Profile = {
   shop_name: string;
   area: string | null;
   phone: string | null;
+  logo_url: string | null;
+  description: string | null;
+  category: string | null;
+  website: string | null;
+  instagram: string | null;
+  whatsapp: string | null;
 };
 
 function DashboardPage() {
@@ -122,7 +132,8 @@ function DashboardPage() {
               </button>
               <button onClick={() => setTab("profile")}
                 className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === "profile" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                <User className="h-4 w-4" /> My Profile
+                <Store className="h-4 w-4" /> My Business Profile
+                {!profile?.shop_name && <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">Set up</span>}
               </button>
             </div>
             {tab === "products" && (
@@ -247,6 +258,12 @@ function InquiryCard({ inquiry, onToggleRead, onDelete }: {
   );
 }
 
+const CATEGORIES = [
+  "Handmade Crafts", "Jewellery & Accessories", "Home Décor", "Food & Snacks",
+  "Clothing & Textiles", "Art & Paintings", "Candles & Soaps", "Plants & Gardening",
+  "Pottery & Ceramics", "Stationery & Paper Crafts", "Toys & Gifts", "Other",
+];
+
 function ProfileTab({ profile, userId, onSaved }: {
   profile: Profile | null;
   userId: string;
@@ -255,14 +272,36 @@ function ProfileTab({ profile, userId, onSaved }: {
   const [shopName, setShopName] = useState(profile?.shop_name ?? "");
   const [area, setArea] = useState(profile?.area ?? "");
   const [phone, setPhone] = useState(profile?.phone ?? "");
+  const [logoUrl, setLogoUrl] = useState(profile?.logo_url ?? "");
+  const [description, setDescription] = useState(profile?.description ?? "");
+  const [category, setCategory] = useState(profile?.category ?? "");
+  const [website, setWebsite] = useState(profile?.website ?? "");
+  const [instagram, setInstagram] = useState(profile?.instagram ?? "");
+  const [whatsapp, setWhatsapp] = useState(profile?.whatsapp ?? "");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setShopName(profile?.shop_name ?? "");
     setArea(profile?.area ?? "");
     setPhone(profile?.phone ?? "");
+    setLogoUrl(profile?.logo_url ?? "");
+    setDescription(profile?.description ?? "");
+    setCategory(profile?.category ?? "");
+    setWebsite(profile?.website ?? "");
+    setInstagram(profile?.instagram ?? "");
+    setWhatsapp(profile?.whatsapp ?? "");
   }, [profile]);
+
+  const onLogoFile = (f: File | undefined) => {
+    if (!f) return;
+    setLogoUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => { setLogoUrl(String(reader.result)); setLogoUploading(false); };
+    reader.readAsDataURL(f);
+  };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -273,6 +312,12 @@ function ProfileTab({ profile, userId, onSaved }: {
       shop_name: shopName.trim(),
       area: area.trim() || null,
       phone: phone.trim() || null,
+      logo_url: logoUrl || null,
+      description: description.trim() || null,
+      category: category || null,
+      website: website.trim() || null,
+      instagram: instagram.trim() || null,
+      whatsapp: whatsapp.trim() || null,
     });
     setBusy(false);
     setSaved(true);
@@ -281,60 +326,175 @@ function ProfileTab({ profile, userId, onSaved }: {
   };
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
+      {/* Preview card */}
+      {profile?.shop_name && (
+        <div className="mb-6 rounded-2xl border border-border bg-card p-5">
+          <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Public Profile Preview</div>
+          <div className="flex items-start gap-4">
+            {profile.logo_url ? (
+              <img src={profile.logo_url} alt="logo" className="h-14 w-14 rounded-xl object-cover border border-border" />
+            ) : (
+              <div className="grid h-14 w-14 place-items-center rounded-xl bg-primary/10 border border-border">
+                <Store className="h-7 w-7 text-primary" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="font-display text-lg font-semibold">{profile.shop_name}</div>
+              {profile.category && <div className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium"><Tag className="h-3 w-3" />{profile.category}</div>}
+              {profile.area && <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" />{profile.area}</div>}
+              {profile.description && <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{profile.description}</p>}
+              <div className="mt-2 flex flex-wrap gap-3">
+                {profile.phone && <a href={`tel:${profile.phone}`} className="flex items-center gap-1 text-xs text-primary hover:underline"><Phone className="h-3 w-3" />{profile.phone}</a>}
+                {profile.whatsapp && <a href={`https://wa.me/${profile.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-green-600 hover:underline"><MessageSquare className="h-3 w-3" />WhatsApp</a>}
+                {profile.instagram && <a href={`https://instagram.com/${profile.instagram.replace(/^@/, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-pink-500 hover:underline"><Instagram className="h-3 w-3" />@{profile.instagram.replace(/^@/, "")}</a>}
+                {profile.website && <a href={profile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-blue-500 hover:underline"><Globe className="h-3 w-3" />Website</a>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-3xl border border-border bg-card p-8">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-6">
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10">
-            <User className="h-6 w-6 text-primary" />
+            <Building2 className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h2 className="font-display text-xl font-semibold">Seller Profile</h2>
-            <p className="text-sm text-muted-foreground">This info appears on your product listings</p>
+            <h2 className="font-display text-xl font-semibold">My Business Profile</h2>
+            <p className="text-sm text-muted-foreground">Optional — visible to buyers on your product pages</p>
           </div>
         </div>
 
-        <form onSubmit={save} className="mt-8 space-y-5">
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shop / Brand Name *</span>
-            <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <input value={shopName} onChange={(e) => setShopName(e.target.value)}
-                placeholder="Pranathi's Handmade Crafts"
-                className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+        <form onSubmit={save} className="space-y-6">
+          {/* Logo */}
+          <div>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Brand Logo (optional)</span>
+            <div className="flex items-center gap-4">
+              {logoUrl ? (
+                <div className="relative">
+                  <img src={logoUrl} alt="logo preview" className="h-20 w-20 rounded-xl object-cover border border-border" />
+                  <button type="button" onClick={() => setLogoUrl("")}
+                    className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-destructive text-destructive-foreground shadow">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => logoRef.current?.click()}
+                  className="flex h-20 w-20 flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-background text-muted-foreground hover:border-primary hover:text-foreground transition">
+                  {logoUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><ImagePlus className="h-5 w-5" /><span className="mt-1 text-[10px]">Upload</span></>}
+                </button>
+              )}
+              <p className="text-xs text-muted-foreground">Square image recommended. JPG or PNG, max 2MB.</p>
             </div>
+            <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={(e) => onLogoFile(e.target.files?.[0])} />
+          </div>
+
+          {/* Basic Info */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shop / Brand Name *</span>
+              <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+                <Store className="h-4 w-4 text-muted-foreground shrink-0" />
+                <input value={shopName} onChange={(e) => setShopName(e.target.value)}
+                  placeholder="Pranathi's Handmade Crafts"
+                  className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+              </div>
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</span>
+              <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+                <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
+                <select value={category} onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none appearance-none">
+                  <option value="">Select a category…</option>
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">City / Area</span>
+              <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <input value={area} onChange={(e) => setArea(e.target.value)}
+                  placeholder="Visakhapatnam, AP"
+                  className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+              </div>
+            </label>
+          </div>
+
+          {/* Description */}
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <FileText className="mb-0.5 inline h-3 w-3" /> About Your Business
+            </span>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+              rows={3} placeholder="Tell buyers about your brand, how you make your products, what makes them special…"
+              className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
           </label>
 
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Area / City</span>
-            <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <input value={area} onChange={(e) => setArea(e.target.value)}
-                placeholder="Visakhapatnam, AP"
-                className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
-            </div>
-          </label>
+          {/* Contact */}
+          <div>
+            <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact & Social Links</div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-xs text-muted-foreground">Phone Number</span>
+                <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <input value={phone} onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+91 98765 43210" inputMode="tel"
+                    className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+                </div>
+              </label>
 
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Phone Number</span>
-            <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <input value={phone} onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 98765 43210" inputMode="tel"
-                className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
-            </div>
-          </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs text-muted-foreground">WhatsApp Number</span>
+                <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+                  <MessageSquare className="h-4 w-4 text-green-500 shrink-0" />
+                  <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)}
+                    placeholder="+91 98765 43210" inputMode="tel"
+                    className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+                </div>
+              </label>
 
-          <div className="flex items-center justify-end gap-3 pt-2">
-            {saved && (
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
-                <CheckCircle className="h-4 w-4" /> Profile saved!
-              </span>
-            )}
-            <button type="submit" disabled={busy || !shopName.trim()}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60">
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save Profile
-            </button>
+              <label className="block">
+                <span className="mb-1.5 block text-xs text-muted-foreground">Instagram Handle</span>
+                <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+                  <Instagram className="h-4 w-4 text-pink-500 shrink-0" />
+                  <input value={instagram} onChange={(e) => setInstagram(e.target.value)}
+                    placeholder="@yourhandle"
+                    className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs text-muted-foreground">Website / Portfolio</span>
+                <div className="flex items-center rounded-xl border border-border bg-background px-3 focus-within:border-primary">
+                  <Globe className="h-4 w-4 text-blue-500 shrink-0" />
+                  <input value={website} onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="https://yoursite.com" type="url"
+                    className="w-full bg-transparent py-2.5 pl-2 text-sm outline-none" />
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground">All fields are optional except Brand Name. Your profile is visible to buyers on your product pages.</p>
+            <div className="flex items-center gap-3 shrink-0">
+              {saved && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                  <CheckCircle className="h-4 w-4" /> Saved!
+                </span>
+              )}
+              <button type="submit" disabled={busy || !shopName.trim()}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60">
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save Profile
+              </button>
+            </div>
           </div>
         </form>
       </div>
